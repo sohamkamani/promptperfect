@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+
+# VS Code specific files
+.vscode-test/
+*.vsix
+
+# Logs
+*.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+
+# Package manager locks (you might want to version this, but it's up to your team's preference)
+package-lock.json
+yarn.lock
+
+# Temporary files
+*.tmp
+*.temp

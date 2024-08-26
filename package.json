@@ -1,0 +1,96 @@
+{
+	"name": "prompt-perfect",
+	"displayName": "Prompt Perfect",
+	"description": "Generate context prompts from open editor windows in vscode so that you can paste them easily into an LLM chat",
+	"version": "0.0.1",
+	"engines": {
+		"vscode": "^1.75.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "prompt-perfect.openEditors",
+				"title": "Prompt Perfect: Open Editors"
+			},
+			{
+				"command": "prompt-perfect.openEditorsAndASCIITree",
+				"title": "Prompt Perfect: Open Editors and ASCII Tree"
+			}
+		],
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "prompt-perfect",
+					"title": "Prompt Perfect",
+					"icon": "resources/prompt-perfect.svg"
+				}
+			]
+		},
+		"views": {
+			"prompt-perfect": [
+				{
+					"id": "prompt-perfect-settings",
+					"name": "Settings"
+				}
+			]
+		},
+		"configuration": {
+			"title": "Prompt Perfect",
+			"properties": {
+				"promptPerfect.limitPromptLength": {
+					"type": "boolean",
+					"default": false,
+					"description": "Limit prompt length?"
+				},
+				"promptPerfect.maxTokens": {
+					"type": "number",
+					"default": 2000,
+					"description": "Maximum number of tokens for prompt generation"
+				},
+				"promptPerfect.autoCopyToClipboard": {
+					"type": "boolean",
+					"default": true,
+					"description": "Automatically copy output to clipboard"
+				},
+				"promptPerfect.treeDepthLimit": {
+					"type": "number",
+					"default": 4,
+					"description": "Tree depth limit for ASCII tree generation"
+				},
+				"promptPerfect.additionalInstructions": {
+					"type": "string",
+					"default": "If there is a file imported/included that I forgot to include or some other file you think I may have already created but have not included, please ask for that file before starting to generate a response.",
+					"description": "Additional instructions for prompt generation"
+				}
+			}
+		}
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./",
+		"pretest": "npm run compile && npm run lint",
+		"lint": "eslint src --ext ts",
+		"test": "node ./out/test/runTest.js"
+	},
+	"devDependencies": {
+		"@types/glob": "^7.1.3",
+		"@types/mocha": "^8.2.2",
+		"@types/node": "14.x",
+		"@types/vscode": "^1.60.0",
+		"@typescript-eslint/eslint-plugin": "^4.26.0",
+		"@typescript-eslint/parser": "^4.26.0",
+		"eslint": "^7.27.0",
+		"glob": "^7.1.7",
+		"mocha": "^8.4.0",
+		"typescript": "^4.3.2",
+		"vscode-test": "^1.5.2"
+	},
+	"dependencies": {
+		"ascii-tree": "^0.3.0"
+	}
+}
