@@ -1,77 +1,104 @@
 import * as vscode from 'vscode';
-import * as asciiTree from 'ascii-tree';
 import * as path from 'path';
 import * as fs from 'fs';
-import { SettingsPanel } from './settingsPanel';
+import ignore from 'ignore';
+import { SettingsViewProvider } from './settingsView';
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Prompt Perfect is now active!');
 
+	const settingsViewProvider = new SettingsViewProvider(context.extensionUri);
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider(
+			SettingsViewProvider.viewType,
+			settingsViewProvider
+		)
+	);
+
 	let openEditorsDisposable = vscode.commands.registerCommand(
-		'prompt-perfect.openEditors',
+		'promptperfect.openEditors',
 		() => {
 			generatePrompt(false);
 		}
 	);
 
 	let openEditorsAndASCIITreeDisposable = vscode.commands.registerCommand(
-		'prompt-perfect.openEditorsAndASCIITree',
+		'promptperfect.openEditorsAndASCIITree',
 		() => {
 			generatePrompt(true);
 		}
 	);
 
-	let settingsPanelDisposable = vscode.commands.registerCommand(
-		'prompt-perfect.openSettings',
-		() => {
-			SettingsPanel.createOrShow(context.extensionUri);
-		}
-	);
-
 	context.subscriptions.push(
 		openEditorsDisposable,
-		openEditorsAndASCIITreeDisposable,
-		settingsPanelDisposable
+		openEditorsAndASCIITreeDisposable
 	);
 }
 
 async function generatePrompt(includeASCIITree: boolean) {
 	const config = vscode.workspace.getConfiguration('promptPerfect');
-	const allDocuments = vscode.workspace.textDocuments;
+	const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+
+	if (!workspaceRoot) {
+		vscode.window.showErrorMessage('No workspace folder is open');
+		return;
+	}
+
+	// Get all open text documents, including those from inactive editors
+	const allDocuments = vscode.window.tabGroups.all
+		.reduce(
+			(acc: vscode.Tab[], group: vscode.TabGroup) =>
+				acc.concat(group.tabs),
+			[]
+		)
+		.filter((tab: vscode.Tab) => tab.input instanceof vscode.TabInputText)
+		.map((tab: vscode.Tab) => (tab.input as vscode.TabInputText).uri)
+		.filter(
+			(uri: vscode.Uri) =>
+				uri.scheme === 'file' && uri.fsPath.startsWith(workspaceRoot)
+		)
+		.map((uri: vscode.Uri) => vscode.workspace.openTextDocument(uri));
+
+	const openDocuments = await Promise.all(allDocuments);
 
 	console.log(
-		`LOGGING: allDocuments count: ${allDocuments.length}; includeASCIITree: ${includeASCIITree}`
+		`LOGGING: allDocuments count: ${openDocuments.length}; includeASCIITree: ${includeASCIITree}`
 	);
+
+	// Load .gitignore
+	const gitignorePath = path.join(workspaceRoot, '.gitignore');
+	const ig = ignore();
+	ig.add('.git/'); // Always ignore .git directory
+	if (fs.existsSync(gitignorePath)) {
+		const gitignoreContent = fs.readFileSync(gitignorePath, 'utf8');
+		ig.add(gitignoreContent);
+	}
 
 	let output = '';
 
 	if (includeASCIITree) {
-		const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-		if (workspaceRoot) {
-			const treeStructure = generateTreeStructure(
-				workspaceRoot,
-				allDocuments,
-				config.get('treeDepthLimit') as number
-			);
-			const asciiTreeOutput = asciiTree.generate(treeStructure);
-			output += `\`\`\`Source Tree\n${asciiTreeOutput}\n\`\`\`\n\n`;
-		}
+		const treeStructure = generateTreeStructure(
+			workspaceRoot,
+			openDocuments,
+			ig,
+			config.get('treeDepthLimit') as number
+		);
+		output += `\`\`\`Source Tree\n${treeStructure}\n\`\`\`\n\n`;
 	}
 
-	for (const document of allDocuments) {
-		// Skip documents that are not file-based (e.g., git commit messages)
-		if (document.uri.scheme !== 'file') {
+	for (const document of openDocuments) {
+		const relativePath = path.relative(workspaceRoot, document.uri.fsPath);
+		if (relativePath && ig.ignores(relativePath)) {
 			continue;
 		}
 
-		const filePath = vscode.workspace.asRelativePath(document.uri);
 		const fileContent = document.getText();
 		const fileSize = Buffer.byteLength(fileContent, 'utf8');
 
 		if (fileSize > 1024 * 1024) {
 			// 1MB
 			const proceed = await vscode.window.showWarningMessage(
-				`Large file detected: ${filePath} (${(
+				`Large file detected: ${relativePath} (${(
 					fileSize /
 					1024 /
 					1024
@@ -84,7 +111,7 @@ async function generatePrompt(includeASCIITree: boolean) {
 			}
 		}
 
-		output += `\`\`\`${filePath}\n${fileContent}\n\`\`\`\n\n`;
+		output += `\`\`\`${relativePath}\n${fileContent}\n\`\`\`\n\n`;
 	}
 
 	const additionalInstructions = config.get(
@@ -119,70 +146,77 @@ async function generatePrompt(includeASCIITree: boolean) {
 function generateTreeStructure(
 	rootPath: string,
 	openDocuments: readonly vscode.TextDocument[],
+	ig: ReturnType<typeof ignore>,
 	depthLimit: number
 ): string {
-	console.log('LOGGING: entering generateTreeStructure');
-
 	const openFilePaths = openDocuments.map((doc) => doc.uri.fsPath);
-	const tree = buildTree(rootPath, openFilePaths, depthLimit);
-	return formatTree(tree);
+	const tree = buildTree(rootPath, openFilePaths, ig, depthLimit, 0);
+	return formatTreeToAscii(tree, '');
 }
 
 function buildTree(
 	currentPath: string,
 	openFilePaths: string[],
+	ig: ReturnType<typeof ignore>,
 	depthLimit: number,
 	currentDepth: number = 0
 ): any {
-	console.log(
-		`LOGGING: entering buildTree, with ${openFilePaths.length} open files`
-	);
-
-	if (currentDepth >= depthLimit && depthLimit !== -1) {
+	if (currentDepth > depthLimit && depthLimit !== -1) {
 		return null;
 	}
 
 	const stats = fs.statSync(currentPath);
 	const name = path.basename(currentPath);
+	const relativePath = path.relative(
+		vscode.workspace.workspaceFolders![0].uri.fsPath,
+		currentPath
+	);
+
+	if (relativePath && ig.ignores(relativePath)) {
+		return null;
+	}
 
 	if (stats.isFile()) {
-		return openFilePaths.includes(currentPath) ? name : null;
+		return openFilePaths.includes(currentPath)
+			? { name, type: 'file' }
+			: null;
 	}
 
 	const children = fs
 		.readdirSync(currentPath)
-		.map((child) =>
-			buildTree(
-				path.join(currentPath, child),
+		.map((child) => {
+			const childPath = path.join(currentPath, child);
+			return buildTree(
+				childPath,
 				openFilePaths,
+				ig,
 				depthLimit,
 				currentDepth + 1
-			)
-		)
+			);
+		})
 		.filter((child) => child !== null);
 
-	return children.length > 0 ? { [name]: children } : null;
+	return { name, type: 'directory', children };
 }
 
-function formatTree(tree: any): string {
-	console.log('LOGGING: entering formatTree');
-	if (typeof tree === 'string') {
-		return tree;
-	}
-
-	const entries = Object.entries(tree);
-	if (entries.length === 0) {
+function formatTreeToAscii(node: any, prefix: string = ''): string {
+	if (!node) {
 		return '';
 	}
 
-	const [name, children] = entries[0];
-	if (!Array.isArray(children)) {
-		return name;
+	let result = `${prefix}${node.name}\n`;
+
+	if (node.type === 'directory' && node.children) {
+		const childrenCount = node.children.length;
+		node.children.forEach((child: any, index: number) => {
+			const isLast = index === childrenCount - 1;
+			const newPrefix = prefix + (isLast ? '└── ' : '├── ');
+			const childPrefix = prefix + (isLast ? '    ' : '│   ');
+			result += formatTreeToAscii(child, newPrefix);
+		});
 	}
 
-	return `${name}\n${children
-		.map((child: any) => `  ${formatTree(child)}`)
-		.join('\n')}`;
+	return result;
 }
 
 export function deactivate() {}
