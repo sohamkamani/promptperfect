@@ -7,7 +7,7 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
 
 	constructor(private readonly _extensionUri: vscode.Uri) {}
 
-	public resolveWebviewView(
+	public async resolveWebviewView(
 		webviewView: vscode.WebviewView,
 		context: vscode.WebviewViewResolveContext,
 		_token: vscode.CancellationToken
@@ -19,7 +19,13 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
 			localResourceRoots: [this._extensionUri],
 		};
 
-		webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+		await this._updateWebview();
+
+		webviewView.onDidChangeVisibility(async () => {
+			if (webviewView.visible) {
+				await this._updateWebview();
+			}
+		});
 
 		webviewView.webview.onDidReceiveMessage((data) => {
 			switch (data.type) {
@@ -30,7 +36,26 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
 		});
 	}
 
-	private _getHtmlForWebview(webview: vscode.Webview) {
+	private async _updateWebview() {
+		if (this._view) {
+			const config = vscode.workspace.getConfiguration('promptPerfect');
+			const currentSettings = {
+				limitPromptLength: await config.get('limitPromptLength'),
+				maxTokens: await config.get('maxTokens'),
+				autoCopyToClipboard: await config.get('autoCopyToClipboard'),
+				treeDepthLimit: await config.get('treeDepthLimit'),
+				additionalInstructions: await config.get(
+					'additionalInstructions'
+				),
+			};
+			this._view.webview.html = this._getHtmlForWebview(
+				this._view.webview,
+				currentSettings
+			);
+		}
+	}
+
+	private _getHtmlForWebview(webview: vscode.Webview, settings: any) {
 		const config = vscode.workspace.getConfiguration('promptPerfect');
 
 		return `
@@ -75,37 +100,37 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
             </style>
         </head>
         <body>
-            <h2>Prompt Perfect Settings</h2>
+        <h2>Prompt Perfect Settings</h2>
             <form id="settingsForm">
                 <label>
                     <input type="checkbox" id="limitPromptLength" ${
-						config.get('limitPromptLength') ? 'checked' : ''
+						settings.limitPromptLength ? 'checked' : ''
 					}>
                     Limit prompt length?
                 </label>
                 <label>
                     Max tokens:
-                    <input type="number" id="maxTokens" value="${config.get(
-						'maxTokens'
-					)}" ${config.get('limitPromptLength') ? '' : 'disabled'}>
+                    <input type="number" id="maxTokens" value="${
+						settings.maxTokens
+					}" ${settings.limitPromptLength ? '' : 'disabled'}>
                 </label>
                 <label>
                     <input type="checkbox" id="autoCopyToClipboard" ${
-						config.get('autoCopyToClipboard') ? 'checked' : ''
+						settings.autoCopyToClipboard ? 'checked' : ''
 					}>
                     Auto copy Output to clipboard
                 </label>
                 <label>
                     Tree depth limit:
-                    <input type="number" id="treeDepthLimit" value="${config.get(
-						'treeDepthLimit'
-					)}">
+                    <input type="number" id="treeDepthLimit" value="${
+						settings.treeDepthLimit
+					}">
                 </label>
                 <label>
                     Additional instructions:
-                    <textarea id="additionalInstructions" rows="4">${config.get(
-						'additionalInstructions'
-					)}</textarea>
+                    <textarea id="additionalInstructions" rows="4">${
+						settings.additionalInstructions
+					}</textarea>
                 </label>
                 <button type="submit">Save Changes</button>
             </form>
@@ -147,33 +172,37 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
     `;
 	}
 
-	private _saveSettings(settings: any) {
+	private async _saveSettings(settings: any) {
 		const config = vscode.workspace.getConfiguration('promptPerfect');
-		config.update(
+		await config.update(
 			'limitPromptLength',
 			settings.limitPromptLength,
 			vscode.ConfigurationTarget.Global
 		);
-		config.update(
+		await config.update(
 			'maxTokens',
 			settings.maxTokens,
 			vscode.ConfigurationTarget.Global
 		);
-		config.update(
+		await config.update(
 			'autoCopyToClipboard',
 			settings.autoCopyToClipboard,
 			vscode.ConfigurationTarget.Global
 		);
-		config.update(
+		await config.update(
 			'treeDepthLimit',
 			settings.treeDepthLimit,
 			vscode.ConfigurationTarget.Global
 		);
-		config.update(
+		await config.update(
 			'additionalInstructions',
 			settings.additionalInstructions,
 			vscode.ConfigurationTarget.Global
 		);
+
 		vscode.window.showInformationMessage('Prompt Perfect settings saved!');
+
+		// Update the webview to reflect the new settings
+		await this._updateWebview();
 	}
 }

@@ -16,14 +16,14 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	let openEditorsDisposable = vscode.commands.registerCommand(
-		'promptperfect.openEditors',
+		'prompt-perfect.openEditors',
 		() => {
 			generatePrompt(false);
 		}
 	);
 
 	let openEditorsAndASCIITreeDisposable = vscode.commands.registerCommand(
-		'promptperfect.openEditorsAndASCIITree',
+		'prompt-perfect.openEditorsAndASCIITree',
 		() => {
 			generatePrompt(true);
 		}
