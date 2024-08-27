@@ -1,5 +1,14 @@
 # 🎭 Prompt Perfect: Your LLM's New Best Friend
 
+## How to use
+
+There are two command prompts.
+
+-   _Open Editors_: This will give you a back tick delimited block of text of all open text based files in your editor windows
+-   _Open Editors and ASCII Tree_: Same as open editors, but at the top is an ascii representation of your source tree, and it ignores anything from .gitignore.
+
+There are also some settings in the Activity Bar pane. You can set folder depth, max token length (so you don't include too many files), and an "Additional Instructions" text area, which I have found useful. You can detele the contents, or edit as you like.
+
 ## 🗒️Developer's Note
 
 I wrote this entire readme.md with the help of this very extension. I pasted it into Anthropic and asked it to write a fun and engaging readme for my project.
