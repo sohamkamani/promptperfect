@@ -4,6 +4,12 @@ import * as fs from 'fs';
 import ignore from 'ignore';
 import { SettingsViewProvider } from './settingsView';
 
+interface TreeNode {
+	name: string;
+	type: string;
+	children?: TreeNode[];
+}
+
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Prompt Perfect is now active!');
 
@@ -15,14 +21,14 @@ export function activate(context: vscode.ExtensionContext) {
 		)
 	);
 
-	let openEditorsDisposable = vscode.commands.registerCommand(
+	const openEditorsDisposable = vscode.commands.registerCommand(
 		'prompt-perfect.openEditors',
 		() => {
 			generatePrompt(false);
 		}
 	);
 
-	let openEditorsAndASCIITreeDisposable = vscode.commands.registerCommand(
+	const openEditorsAndASCIITreeDisposable = vscode.commands.registerCommand(
 		'prompt-perfect.openEditorsAndASCIITree',
 		() => {
 			generatePrompt(true);
@@ -143,25 +149,28 @@ async function generatePrompt(includeASCIITree: boolean) {
 	}
 }
 
-function generateTreeStructure(
+export function generateTreeStructure(
 	rootPath: string,
 	openDocuments: readonly vscode.TextDocument[],
 	ig: ReturnType<typeof ignore>,
 	depthLimit: number
 ): string {
 	const openFilePaths = openDocuments.map((doc) => doc.uri.fsPath);
-	const tree = buildTree(rootPath, openFilePaths, ig, depthLimit, 0);
-	return formatTreeToAscii(tree, '');
+	const effectiveDepthLimit = depthLimit < 0 ? Infinity : depthLimit;
+	const tree = buildTree(rootPath, openFilePaths, ig, effectiveDepthLimit, 0);
+	if (!tree) return '';
+
+	return formatTreeToAscii(tree, '', true, true).trimEnd();
 }
 
-function buildTree(
+export function buildTree(
 	currentPath: string,
 	openFilePaths: string[],
 	ig: ReturnType<typeof ignore>,
 	depthLimit: number,
 	currentDepth: number = 0
-): any {
-	if (currentDepth > depthLimit && depthLimit !== -1) {
+): TreeNode | null {
+	if (currentDepth > depthLimit && depthLimit !== Infinity) {
 		return null;
 	}
 
@@ -177,9 +186,7 @@ function buildTree(
 	}
 
 	if (stats.isFile()) {
-		return openFilePaths.includes(currentPath)
-			? { name, type: 'file' }
-			: null;
+		return { name, type: 'file' };
 	}
 
 	const children = fs
@@ -194,29 +201,34 @@ function buildTree(
 				currentDepth + 1
 			);
 		})
-		.filter((child) => child !== null);
+		.filter((child): child is TreeNode => child !== null);
 
 	return { name, type: 'directory', children };
 }
 
-function formatTreeToAscii(node: any, prefix: string = ''): string {
+export function formatTreeToAscii(
+	node: TreeNode,
+	prefix: string = '',
+	isLast: boolean = true,
+	isRoot: boolean = true
+): string {
 	if (!node) {
 		return '';
 	}
 
-	let result = `${prefix}${node.name}\n`;
+	let result = isRoot
+		? `${node.name}\n`
+		: `${prefix}${isLast ? '└── ' : '├── '}${node.name}\n`;
 
 	if (node.type === 'directory' && node.children) {
 		const childrenCount = node.children.length;
-		node.children.forEach((child: any, index: number) => {
-			const isLast = index === childrenCount - 1;
-			const newPrefix = prefix + (isLast ? '└── ' : '├── ');
-			const childPrefix = prefix + (isLast ? '    ' : '│   ');
-			result += formatTreeToAscii(child, newPrefix);
+		node.children.forEach((child: TreeNode, index: number) => {
+			const isLastChild = index === childrenCount - 1;
+			const newPrefix = prefix + (isRoot ? '' : isLast ? '    ' : '│   ');
+			result += formatTreeToAscii(child, newPrefix, isLastChild, false);
 		});
 	}
 
 	return result;
 }
-
 export function deactivate() {}

@@ -1,3 +1,7 @@
+```IGNORE THIS BLOCK OF TEXT
+This is a note for anyone looking at this project. This is the first requirements document that I used to start this project with the LLM as a paired programmer. I keep it around so I have a record of the requirements as I was tracking them.
+```
+
 OK, we have a new project on which we are going to work through a solution.
 
 I want to write a vscode extension that does a couple of things. The extension will be called Prompt Perfect.

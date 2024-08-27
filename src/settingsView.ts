@@ -7,11 +7,7 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
 
 	constructor(private readonly _extensionUri: vscode.Uri) {}
 
-	public async resolveWebviewView(
-		webviewView: vscode.WebviewView,
-		context: vscode.WebviewViewResolveContext,
-		_token: vscode.CancellationToken
-	) {
+	public async resolveWebviewView(webviewView: vscode.WebviewView) {
 		this._view = webviewView;
 
 		webviewView.webview.options = {
@@ -55,9 +51,10 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
-	private _getHtmlForWebview(webview: vscode.Webview, settings: any) {
-		const config = vscode.workspace.getConfiguration('promptPerfect');
-
+	private _getHtmlForWebview(
+		webview: vscode.Webview,
+		settings: Record<string, unknown>
+	) {
 		return `
         <!DOCTYPE html>
         <html lang="en">
@@ -172,7 +169,7 @@ export class SettingsViewProvider implements vscode.WebviewViewProvider {
     `;
 	}
 
-	private async _saveSettings(settings: any) {
+	private async _saveSettings(settings: Record<string, unknown>) {
 		const config = vscode.workspace.getConfiguration('promptPerfect');
 		await config.update(
 			'limitPromptLength',

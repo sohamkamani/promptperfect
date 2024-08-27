@@ -27,4 +27,4 @@ yarn.lock
 *.temp
 
 # my files
-build_and_publishReadme.md
+hideme/*
