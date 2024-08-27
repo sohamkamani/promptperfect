@@ -25,3 +25,6 @@ yarn.lock
 # Temporary files
 *.tmp
 *.temp
+
+# my files
+build_and_publishReadme.md

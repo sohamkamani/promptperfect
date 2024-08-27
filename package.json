@@ -1,8 +1,9 @@
 {
 	"name": "prompt-perfect",
+	"publisher": "BrandnoWatson",
 	"displayName": "Prompt Perfect",
 	"description": "Generate context prompts from open editor windows in vscode so that you can paste them easily into an LLM chat",
-	"version": "0.0.1",
+	"version": "1.0.0",
 	"engines": {
 		"vscode": "^1.75.0"
 	},
