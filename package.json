@@ -3,7 +3,7 @@
 	"publisher": "BrandnoWatson",
 	"displayName": "Prompt Perfect",
 	"description": "Generate context prompts from open editor windows in vscode so that you can paste them easily into an LLM chat",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"icon": "resources/prompt-perfect-logo.png",
 	"engines": {
 		"vscode": "^1.75.0"
@@ -11,7 +11,7 @@
 	"categories": [
 		"Other"
 	],
-	"main": "./out/extension.js",
+	"main": "./out/src/extension.js",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/brandonwatson/promptperfect.git"
