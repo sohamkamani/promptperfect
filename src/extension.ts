@@ -82,6 +82,11 @@ async function generatePrompt(includeASCIITree: boolean) {
 
 	let output = '';
 
+	const prefix = config.get('prefix') as string;
+	if (prefix) {
+		output += `${prefix}\n\n`;
+	}
+
 	if (includeASCIITree) {
 		const treeStructure = generateTreeStructure(
 			workspaceRoot,
@@ -231,4 +236,4 @@ export function formatTreeToAscii(
 
 	return result;
 }
-export function deactivate() {}
+export function deactivate() { }
